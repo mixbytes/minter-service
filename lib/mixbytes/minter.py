@@ -75,8 +75,8 @@ class MinterService(object):
         gas_price = self._w3.eth.gasPrice
         gas_limit = self._gas_limit()
 
-        tx_hash = self._target_contract()
-            .transact({'from': self._wsgi_mode_state.get_account_address(), 'gasPrice': gas_price, 'gas': gas_limit})
+        tx_hash = self._target_contract() \
+            .transact({'from': self._wsgi_mode_state.get_account_address(), 'gasPrice': gas_price, 'gas': gas_limit}) \
             .mint(mint_id, address, tokens)
 
         # remembering tx hash for get_minting_status references - optional step

@@ -67,7 +67,7 @@ def get_blockchain_height():
 
 @app.route('/estimateTokens')
 def estimateTokens():
-    tokens = float(Decimal(_get_tokens()) / (Decimal(10) **
+    tokens = float(Decimal(_get_ethers()) / (Decimal(10) **
                                              wsgi_minter.contract_token_details().decimals()))
     return jsonify({
         'tokens': tokens
@@ -82,6 +82,14 @@ def tokenBalance():
     return jsonify({
         'balance': tokens
     })
+
+
+def _get_ethers():
+    ether = request.args['ether']
+    try:
+        return int(ether)
+    except ValueError:
+        abort(400, 'bad ether')
 
 
 def _get_mint_id():
