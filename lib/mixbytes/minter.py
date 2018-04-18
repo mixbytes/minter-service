@@ -10,18 +10,20 @@ import yaml
 from web3 import Web3, HTTPProvider, IPCProvider
 
 
-
 import redis
 import redis.exceptions
 
 from mixbytes.filelock import FileLock, WouldBlockError
 from mixbytes.conf import ConfigurationBase
-
+from mixbytes import contract
+import functools
 
 logger = logging.getLogger(__name__)
 
+
 class MinterService(object):
     TX_BLOCK_HEIGHT_KEY_PREFIX = 'bh'
+
     def __init__(self, conf_filename, contracts_directory, wsgi_mode=False):
         self._conf = _Conf(conf_filename)
         self.contracts_directory = contracts_directory
@@ -32,17 +34,31 @@ class MinterService(object):
         self._redis = self._conf.get_redis() if wsgi_mode else None
 
         self.__target_contract = None
+
+        self._erc20_contract = contract.Contract(self._w3, self.token_address(
+        ), os.path.join(self.contracts_directory, 'ERC20Basic.json'))
+
+        self._details_contract = contract.Contract(self._w3, self.token_address(
+        ), os.path.join(self.contracts_directory, 'Details.json'))
+
         if wsgi_mode:
             self.unlockAccount()
-           
+
     def unlockAccount(self):
-        logger.debug("Unlock account %s" % (self._wsgi_mode_state.get_account_address()))
+        logger.debug("Unlock account %s" %
+                     (self._wsgi_mode_state.get_account_address()))
         self._w3.personal.unlockAccount(self._wsgi_mode_state.get_account_address(),
                                         self._wsgi_mode_state['account']['password'],
                                         600)
 
     def blockchain_height(self):
         return self._w3.eth.blockNumber
+
+    def contract_erc20(self):
+        return self._erc20_contract
+
+    def contract_token_details(self):
+        return self._details_contract
 
     def mint_tokens(self, mint_id, address, tokens):
         """
@@ -59,24 +75,25 @@ class MinterService(object):
         gas_price = self._w3.eth.gasPrice
         gas_limit = self._gas_limit()
 
-        tx_hash = self._target_contract()\
-            .transact({'from': self._wsgi_mode_state.get_account_address(), 'gasPrice': gas_price, 'gas': gas_limit})\
+        tx_hash = self._target_contract()
+            .transact({'from': self._wsgi_mode_state.get_account_address(), 'gasPrice': gas_price, 'gas': gas_limit})
             .mint(mint_id, address, tokens)
 
         # remembering tx hash for get_minting_status references - optional step
-        _silent_redis_call(self._redis.lpush, self._redis_mint_tx_key(mint_id), Web3.toBytes(hexstr=tx_hash))
-        
+        _silent_redis_call(self._redis.lpush, self._redis_mint_tx_key(
+            mint_id), Web3.toBytes(hexstr=tx_hash))
+
         logger.debug('mint_tokens(): mint_id=%s, address=%s, tokens=%d, gas_price=%d, gas=%d: sent tx %s',
-                      Web3.toHex(mint_id), address, tokens, gas_price, gas_limit, tx_hash)
+                     Web3.toHex(mint_id), address, tokens, gas_price, gas_limit, tx_hash)
 
         return tx_hash
 
     def _build_status(self, status, **kwargs):
-            res = {'status': status}
-            for k, v in kwargs.items():
-                res[k] = v
-            return res
-        
+        res = {'status': status}
+        for k, v in kwargs.items():
+            res[k] = v
+        return res
+
     def get_minting_status(self, mint_id) -> dict:
         """
         Query current status of mint request
@@ -89,26 +106,31 @@ class MinterService(object):
 
         w3_instance = self._w3
         conf = self._conf
-       
+
         if self._get_minting_status_is_confirmed(mint_id):
             return self._build_status('minted')
 
         # Checking if it was mined recently (still subject to removal from blockchain!).
         if conf.get('require_confirmations', 0) > 0 and self._target_contract().call().m_processed_mint_id(mint_id):
             current_block_number = self._w3.eth.blockNumber
-            mint_id_block = _silent_redis_call(self._redis.get, self._redis_mint_tx_key(mint_id, self.TX_BLOCK_HEIGHT_KEY_PREFIX))
+            mint_id_block = _silent_redis_call(self._redis.get, self._redis_mint_tx_key(
+                mint_id, self.TX_BLOCK_HEIGHT_KEY_PREFIX))
             if not mint_id_block:
-                _silent_redis_call(self._redis.set, self._redis_mint_tx_key(mint_id, self.TX_BLOCK_HEIGHT_KEY_PREFIX), self._w3.eth.blockNumber, ex=3600)
-            
+                _silent_redis_call(self._redis.set, self._redis_mint_tx_key(
+                    mint_id, self.TX_BLOCK_HEIGHT_KEY_PREFIX), self._w3.eth.blockNumber, ex=3600)
+
             start_mint_block = int(mint_id_block or current_block_number)
             confirmations = current_block_number - start_mint_block
-            rest_confirmations = conf.get('require_confirmations', 0) - confirmations
+            rest_confirmations = conf.get(
+                'require_confirmations', 0) - confirmations
             return self._build_status('minting', confirmations=confirmations, rest_confirmations=rest_confirmations)
         # finding all known transaction ids which could mint this mint_id
-        tx_bin_ids = _silent_redis_call(self._redis.lrange, self._redis_mint_tx_key(mint_id), 0, -1) or []
+        tx_bin_ids = _silent_redis_call(
+            self._redis.lrange, self._redis_mint_tx_key(mint_id), 0, -1) or []
 
         # getting transactions
-        txs = list(filter(None, (w3_instance.eth.getTransaction(Web3.toHex(tx_id)) for tx_id in tx_bin_ids)))
+        txs = list(filter(None, (w3_instance.eth.getTransaction(
+            Web3.toHex(tx_id)) for tx_id in tx_bin_ids)))
 
         # searching for failed transactions
         for tx in txs:
@@ -142,7 +164,8 @@ class MinterService(object):
         """
         with self._load_state() as state:
             if state.account_address is not None:
-                raise UsageError('Account is already initialized (address: {})', state.account_address)
+                raise UsageError(
+                    'Account is already initialized (address: {})', state.account_address)
 
             password = Web3.sha3(os.urandom(100))[2:42]
             address = self._w3.personal.newAccount(password)
@@ -155,19 +178,18 @@ class MinterService(object):
             state.save(True)
 
             return address
-        
+
     def get_or_init_account(self):
         state = self._load_state()
-        
+
         if state.account_address is not None:
-            
+
             res = state.account_address
-        else:            
-            res =  self.init_account()
+        else:
+            res = self.init_account()
 
         state.close()
         return res
-
 
     def is_contract_deployed(self):
         try:
@@ -175,8 +197,6 @@ class MinterService(object):
             return True
         except RuntimeError:
             return False
-            
-        
 
     def deploy_contract(self, token_address):
         """
@@ -189,20 +209,22 @@ class MinterService(object):
         gas_price = w3_instance.eth.gasPrice
         gas_limit = int(w3_instance.eth.getBlock('latest').gasLimit * 0.9)
 
-        get_bytecode = lambda json_: json_.get('bytecode') or json_['unlinked_binary']
+        def get_bytecode(json_): return json_.get(
+            'bytecode') or json_['unlinked_binary']
 
         with self._load_state() as state:
             contract = w3_instance.eth.contract(abi=self._built_contract('ReenterableMinter')['abi'],
                                                 bytecode=get_bytecode(self._built_contract('ReenterableMinter')))
 
-            w3_instance.personal.unlockAccount(state.get_account_address(), state['account']['password'])
+            w3_instance.personal.unlockAccount(
+                state.get_account_address(), state['account']['password'])
 
             tx_hash = contract.deploy(transaction={'from': state.get_account_address(),
                                                    'gasPrice': gas_price, 'gas': gas_limit},
                                       args=[token_address])
 
             logger.debug('deploy_contract: token_address=%s, gas_price=%d, gas=%d: sent tx %s',
-                          token_address, gas_price, gas_limit, tx_hash)
+                         token_address, gas_price, gas_limit, tx_hash)
 
             receipt = self._get_receipt_blocking(tx_hash)
             address = receipt['contractAddress']
@@ -221,19 +243,21 @@ class MinterService(object):
         :return: hash of transaction or None (in case nothing could be sent)
         """
         with self._load_state() as state:
-            self._w3.personal.unlockAccount(state.get_account_address(), state['account']['password'])
+            self._w3.personal.unlockAccount(
+                state.get_account_address(), state['account']['password'])
 
             gas_price = self._w3.eth.gasPrice
             gas_limit = 50000
-            value2send = self._w3.eth.getBalance(state.get_account_address()) - gas_limit * gas_price
+            value2send = self._w3.eth.getBalance(
+                state.get_account_address()) - gas_limit * gas_price
             if value2send <= 0:
                 return None
 
             tx_hash = self._w3.eth.sendTransaction({'from': state.get_account_address(), 'to': target_address,
-                    'value': value2send, 'gasPrice': gas_price, 'gas': gas_limit})
+                                                    'value': value2send, 'gasPrice': gas_price, 'gas': gas_limit})
 
             logger.debug('recover_ether: from=%s, target_address=%s, gas_price=%d, gas=%d: sent tx %s',
-                          state.get_account_address(), target_address, gas_price, gas_limit, tx_hash)
+                         state.get_account_address(), target_address, gas_price, gas_limit, tx_hash)
 
             self._get_receipt_blocking(tx_hash)
             return tx_hash
@@ -258,7 +282,6 @@ class MinterService(object):
         if self.wsgi_mode:
             self._wsgi_mode_state.close()
 
-
     def _get_minting_status_is_confirmed(self, prepared_mint_id) -> tuple:
         w3_instance = self._w3
         conf = self._conf
@@ -268,7 +291,8 @@ class MinterService(object):
 
         # Checking if it was mined enough block ago.
         if 'require_confirmations' in conf:
-            confirmed_block = w3_instance.eth.blockNumber - int(conf['require_confirmations'])
+            confirmed_block = w3_instance.eth.blockNumber - \
+                int(conf['require_confirmations'])
             if confirmed_block < 0:
                 # we are at the beginning of blockchain for some reason
                 return False
@@ -284,7 +308,8 @@ class MinterService(object):
         try:
             if contract.call().m_processed_mint_id(prepared_mint_id):
                 # TODO background eviction thread/process
-                _silent_redis_call(self._redis.delete, self._redis_mint_tx_key(prepared_mint_id))
+                _silent_redis_call(self._redis.delete,
+                                   self._redis_mint_tx_key(prepared_mint_id))
 
                 return True
         finally:
@@ -326,12 +351,13 @@ class MinterService(object):
             if receipt is not None:
                 return receipt
             sleep(1)
+
     def token_address(self):
         try:
             return self._target_contract().call().m_token()
         except RuntimeError:
             return None
-    
+
     @classmethod
     def _prepare_mint_id(cls, mint_id):
         if not isinstance(mint_id, (str, bytes)):
@@ -342,20 +368,20 @@ class MinterService(object):
 
         return Web3.toBytes(hexstr=Web3.sha3(mint_id))
 
-
-    def _redis_mint_tx_key(self, mint_id, key_prefix: str = ""):
+    def _redis_mint_tx_key(self, mint_id, key_prefix: str=""):
         """
         Creating unique redis key for current minter contract and mint_id
         :param mint_id: mint id (bytes)
         :return: redis-compatible string
         """
         assert self.wsgi_mode
-        contract_address_bytes = Web3.toBytes(hexstr=self._wsgi_mode_state.get_minter_contract_address())
+        contract_address_bytes = Web3.toBytes(
+            hexstr=self._wsgi_mode_state.get_minter_contract_address())
         assert 20 == len(contract_address_bytes)
-        
+
         if key_prefix is None:
             key_prefix = ""
-        
+
         return key_prefix.encode('utf-8') + Web3.toBytes(hexstr=Web3.sha3(contract_address_bytes + mint_id))
 
 
@@ -385,9 +411,9 @@ class _Conf(ConfigurationBase):
 
     def get_redis(self):
         return redis.StrictRedis(
-                host=self.get('redis', {}).get('host', '127.0.0.1'),
-                port=self.get('redis', {}).get('port', 6379),
-                db=self.get('redis', {}).get('db', 0))
+            host=self.get('redis', {}).get('host', '127.0.0.1'),
+            port=self.get('redis', {}).get('port', 6379),
+            db=self.get('redis', {}).get('db', 0))
 
     def _check_addresses(self, addresses):
         self._check_strings(addresses)
@@ -401,11 +427,13 @@ class _State(object):
     def __init__(self, filename, lock_shared=False):
         self._filename = filename
 
-        self._lock = FileLock(filename + ".lock", non_blocking=True, shared=lock_shared)
+        self._lock = FileLock(filename + ".lock",
+                              non_blocking=True, shared=lock_shared)
         try:
             self._lock.lock()   # implicit unlock is at process termination
         except WouldBlockError:
-            raise RuntimeError('Can\'t acquire state lock: looks like another instance is running')
+            raise RuntimeError(
+                'Can\'t acquire state lock: looks like another instance is running')
 
         if os.path.isfile(filename):
             with open(filename) as fh:
@@ -417,7 +445,6 @@ class _State(object):
 
         self._original = copy.deepcopy(self._state)
 
-
     def __enter__(self):
         assert self._lock is not None, "reuse is not possible"
         return self     # already locked
@@ -425,7 +452,6 @@ class _State(object):
     def __exit__(self, exc_type, exc_val, exc_tb):
         self._lock.unlock()
         self._lock = None
-
 
     def __getitem__(self, key):
         assert self._lock is not None
@@ -443,7 +469,6 @@ class _State(object):
         assert self._lock is not None
         return self._state.get(key, default)
 
-
     @property
     def account_address(self):
         return self.get('account', dict()).get('address')
@@ -457,7 +482,6 @@ class _State(object):
         if 'minter_contract' not in self:
             raise RuntimeError('contract was not deployed')
         return self['minter_contract']
-
 
     def save(self, sync=False):
         assert self._lock is not None

@@ -23,4 +23,3 @@ services:
     volumes:
       - "/data:/app/data"                     # minter-service data directory
       - "/minter.conf:/app/conf/minter.conf"  # config file
-

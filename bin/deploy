@@ -16,7 +16,8 @@ root = os.path.realpath(join(os.path.dirname(__file__), '..'))
 
 
 os.chdir(root)
-subprocess.check_call([join(root, 'node_modules', '.bin', 'truffle'), 'compile'])
+subprocess.check_call(
+    [join(root, 'node_modules', '.bin', 'truffle'), 'compile'])
 
 
 if os.path.exists(target):
@@ -27,7 +28,8 @@ for dir in ('bin', 'conf', 'lib'):
     copytree(join(root, dir), join(target, dir))
 
 target_contracts_dir = join(target, 'built_contracts')
-os.mkdir(target_contracts_dir)
-copy2(join(root, 'build', 'contracts', 'ReenterableMinter.json'), target_contracts_dir)
+# os.mkdir(target_contracts_dir)
+
+copytree(join(root, 'build', 'contracts'), target_contracts_dir)
 
 os.unlink(join(target, 'bin', os.path.basename(__file__)))

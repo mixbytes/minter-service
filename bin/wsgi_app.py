@@ -9,33 +9,36 @@ from flask import Flask, abort, request, jsonify
 
 from uwsgidecorators import timer
 from mixbytes.minter import MinterService
+from decimal import Decimal
 
 logging.config.dictConfig({
-        'version': 1,
-        'disable_existing_loggers': False,
-        'formatters': {
-            'standard': {
-                'format': '%(asctime)s [%(levelname)s] %(name)s: %(message)s'
-            }
-        },
-        'handlers': {
-            'default': {
-                'level': os.environ.get("LOG_LEVEL", logging.getLevelName(logging.DEBUG)),
-                'class': 'logging.StreamHandler',
-                'formatter': 'standard',
-                'stream': 'ext://sys.stdout'
-            }
-        },
-        'root': {
-                'handlers': ['default'],
-                'level': os.environ.get("LOG_LEVEL", logging.getLevelName(logging.DEBUG))
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'standard': {
+            'format': '%(asctime)s [%(levelname)s] %(name)s: %(message)s'
         }
+    },
+    'handlers': {
+        'default': {
+            'level': os.environ.get("LOG_LEVEL", logging.getLevelName(logging.DEBUG)),
+            'class': 'logging.StreamHandler',
+            'formatter': 'standard',
+            'stream': 'ext://sys.stdout'
+        }
+    },
+    'root': {
+        'handlers': ['default'],
+        'level': os.environ.get("LOG_LEVEL", logging.getLevelName(logging.DEBUG))
+    }
 })
 
 logger = logging.getLogger(__name__)
 
-conf_filename = os.path.join(os.path.dirname(__file__), '..', 'conf', 'minter.conf')
-contracts_directory = os.path.join(os.path.dirname(__file__), '..', 'built_contracts')
+conf_filename = os.path.join(os.path.dirname(
+    __file__), '..', 'conf', 'minter.conf')
+contracts_directory = os.path.join(
+    os.path.dirname(__file__), '..', 'built_contracts')
 
 app = Flask(__name__)
 wsgi_minter = MinterService(conf_filename, contracts_directory, wsgi_mode=True)
@@ -62,6 +65,25 @@ def get_blockchain_height():
     return jsonify(wsgi_minter.blockchain_height())
 
 
+@app.route('/estimateTokens')
+def estimateTokens():
+    tokens = float(Decimal(_get_tokens()) / (Decimal(10) **
+                                             wsgi_minter.contract_token_details().decimals()))
+    return jsonify({
+        'tokens': tokens
+    })
+
+
+@app.route('/getTokenBalance')
+def tokenBalance():
+    tokens = float(Decimal(wsgi_minter.contract_erc20().balanceOf(
+        _get_address())) / (Decimal(10) **
+                            wsgi_minter.contract_token_details().decimals()))
+    return jsonify({
+        'balance': tokens
+    })
+
+
 def _get_mint_id():
     """
     Extracts mint id from current request parameters.
@@ -74,7 +96,6 @@ def _get_mint_id():
         abort(400, 'empty mint_id')
 
     return mint_id
-
 
 
 def _get_address():
