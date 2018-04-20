@@ -89,6 +89,10 @@ def _get_ethers():
     try:
         return int(ether)
     except ValueError:
+        pass
+    try:
+        return float(ether)
+    except ValueError:
         abort(400, 'bad ether')
 
 
