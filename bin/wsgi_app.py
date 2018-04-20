@@ -5,6 +5,7 @@ import logging
 import logging.config
 
 from web3 import Web3
+
 from flask import Flask, abort, request, jsonify
 
 from uwsgidecorators import timer
@@ -67,8 +68,8 @@ def get_blockchain_height():
 
 @app.route('/estimateTokens')
 def estimateTokens():
-    tokens = float(Decimal(_get_ethers()) / (Decimal(10) **
-                                             wsgi_minter.contract_token_details().decimals()))
+    tokens = float(Web3.toWei(_get_ethers(), 'ether') / (Decimal(10) **
+                                                         wsgi_minter.contract_token_details().decimals()))
     return jsonify({
         'tokens': tokens
     })
