@@ -37,11 +37,12 @@ class MinterService(object):
 
         if wsgi_mode:
             self.unlockAccount()
-            self._erc20_contract = contract.Contract(self._w3, self.token_address(
-            ), os.path.join(self.contracts_directory, 'ERC20Basic.json'))
+            if self.token_address() is not None:
+                self._erc20_contract = contract.Contract(self._w3, self.token_address(
+                ), os.path.join(self.contracts_directory, 'ERC20Basic.json'))
 
-            self._details_contract = contract.Contract(self._w3, self.token_address(
-            ), os.path.join(self.contracts_directory, 'Details.json'))
+                self._details_contract = contract.Contract(self._w3, self.token_address(
+                ), os.path.join(self.contracts_directory, 'IEstimateToken.json'))
 
     def unlockAccount(self):
         logger.debug("Unlock account %s" %

@@ -68,8 +68,8 @@ def get_blockchain_height():
 
 @app.route('/estimateTokens')
 def estimateTokens():
-    tokens = float(Web3.toWei(_get_ethers(), 'ether') / (Decimal(10) **
-                                                         wsgi_minter.contract_token_details().decimals()))
+    tokens = str(wsgi_minter.contract_token_details().estimate(
+        Web3.toWei(_get_ethers(), 'ether')))
     return jsonify({
         'tokens': tokens
     })
@@ -77,9 +77,8 @@ def estimateTokens():
 
 @app.route('/getTokenBalance')
 def tokenBalance():
-    tokens = float(Decimal(wsgi_minter.contract_erc20().balanceOf(
-        _get_address())) / (Decimal(10) **
-                            wsgi_minter.contract_token_details().decimals()))
+    tokens = str(Decimal(wsgi_minter.contract_erc20().balanceOf(
+        _get_address())))
     return jsonify({
         'balance': tokens
     })

@@ -7,7 +7,7 @@ import types
 
 class Contract():
     def __init__(self, web3, address, contract_path):
-
+        assert address is not None
         self._validate_address(address)
         self._contract = web3.eth.contract(
             address, abi=self._built_contract(contract_path)['abi'])
