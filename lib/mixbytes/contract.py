@@ -3,6 +3,22 @@ import re
 import os
 import json
 import types
+import web3
+from mixbytes.conf import ConfigurationBase
+
+
+class ContractsRegistry():
+    def __init__(self, web3_provider, contracts_dir):
+        self._w3 = web3.Web3(web3_provider)
+        self._dir = contracts_dir
+        self._registry = {}
+
+    def add_contract(self, name, address, interface_file_name):
+        self._registry[name] = Contract(self._w3, address, os.path.join(
+            self._dir, interface_file_name + ".json"))
+
+    def __getattr__(self, function_name):
+        return self._registry[function_name]
 
 
 class Contract():

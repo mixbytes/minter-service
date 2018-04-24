@@ -1,4 +1,5 @@
 conf/minter.conf
+conf/ico_info.conf
 .git
 .gitignore
 Dockerfile*

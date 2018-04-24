@@ -24,8 +24,9 @@ logger = logging.getLogger(__name__)
 class MinterService(object):
     TX_BLOCK_HEIGHT_KEY_PREFIX = 'bh'
 
-    def __init__(self, conf_filename, contracts_directory, wsgi_mode=False):
-        self._conf = _Conf(conf_filename)
+    def __init__(self, config, contracts_directory, wsgi_mode=False):
+
+        self._conf = _Conf(config.filename)
         self.contracts_directory = contracts_directory
         self.wsgi_mode = wsgi_mode
 
@@ -37,28 +38,17 @@ class MinterService(object):
 
         if wsgi_mode:
             self.unlockAccount()
-            if self.token_address() is not None:
-                self._erc20_contract = contract.Contract(self._w3, self.token_address(
-                ), os.path.join(self.contracts_directory, 'ERC20Basic.json'))
-
-                self._details_contract = contract.Contract(self._w3, self.token_address(
-                ), os.path.join(self.contracts_directory, 'IEstimateToken.json'))
 
     def unlockAccount(self):
         logger.debug("Unlock account %s" %
                      (self._wsgi_mode_state.get_account_address()))
-        self._w3.personal.unlockAccount(self._wsgi_mode_state.get_account_address(),
-                                        self._wsgi_mode_state['account']['password'],
-                                        600)
+        if 'password' in self._wsgi_mode_state['account']:
+            self._w3.personal.unlockAccount(self._wsgi_mode_state.get_account_address(),
+                                            self._wsgi_mode_state['account']['password'],
+                                            600)
 
     def blockchain_height(self):
         return self._w3.eth.blockNumber
-
-    def contract_erc20(self):
-        return self._erc20_contract
-
-    def contract_token_details(self):
-        return self._details_contract
 
     def mint_tokens(self, mint_id, address, tokens):
         """
@@ -157,6 +147,13 @@ class MinterService(object):
             # There are no signs of minting - now its vise for client to re-mint this mint_id.
             return self._build_status('not_minted')
 
+    def set_account_address(self, address):
+        with self._load_state() as state:
+            state['account'] = {
+                'address': address
+            }
+            state.save(True)
+
     def init_account(self):
         """
         Initializes ethereum external account to use for minting
@@ -179,13 +176,14 @@ class MinterService(object):
 
             return address
 
-    def get_or_init_account(self):
+    def get_or_init_account(self, address=None):
         state = self._load_state()
 
         if state.account_address is not None:
 
             res = state.account_address
         else:
+            state.close()
             res = self.init_account()
 
         state.close()
@@ -215,9 +213,10 @@ class MinterService(object):
         with self._load_state() as state:
             contract = w3_instance.eth.contract(abi=self._built_contract('ReenterableMinter')['abi'],
                                                 bytecode=get_bytecode(self._built_contract('ReenterableMinter')))
-
-            w3_instance.personal.unlockAccount(
-                state.get_account_address(), state['account']['password'])
+            print(state['account'])
+            if 'password' in state['account']:
+                w3_instance.personal.unlockAccount(
+                    state.get_account_address(), state['account']['password'])
 
             tx_hash = contract.deploy(transaction={'from': state.get_account_address(),
                                                    'gasPrice': gas_price, 'gas': gas_limit},
@@ -358,6 +357,10 @@ class MinterService(object):
         except RuntimeError:
             return None
 
+    def minter_address(self):
+        assert self.wsgi_mode
+        return self._wsgi_mode_state.get_minter_contract_address()
+
     @classmethod
     def _prepare_mint_id(cls, mint_id):
         if not isinstance(mint_id, (str, bytes)):
@@ -403,11 +406,6 @@ class _Conf(ConfigurationBase):
 
         if self._uses_web3 and self._conf['web3_provider']['class'] not in ('HTTPProvider', 'IPCProvider'):
             raise TypeError('bad web3 provider')
-
-    def get_provider(self):
-        if not self._uses_web3:
-            raise RuntimeError('web3 is not being used')
-        return globals()[self._conf['web3_provider']['class']](*(self._conf['web3_provider']['args']))
 
     def get_redis(self):
         return redis.StrictRedis(

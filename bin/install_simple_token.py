@@ -13,6 +13,7 @@ from plumbum.cmd import truffle
 import yaml
 import shutil
 import logging
+from mixbytes.conf import ConfigurationBase
 
 logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s', level=logging.INFO)
@@ -53,6 +54,7 @@ class SimpleTokenInstaller(cli.Application):
     _redis_host = 'localhost'
     _redis_port = 6379
     _ethereum_node = 'http://localhost:8545'
+    _ganache = False
 
     @cli.switch("--redis", str)
     def redis(self, redis):
@@ -60,6 +62,10 @@ class SimpleTokenInstaller(cli.Application):
         self._redis_host = host_and_port[0]
         self._redis_port = int(host_and_port[1])
         self._network = "development"
+
+    @cli.switch("--ganache")
+    def ganache(self):
+        self._ganache = True
 
     @cli.switch("--ethereum-node", str)
     def ethereum_node(self, node):
@@ -87,17 +93,21 @@ class SimpleTokenInstaller(cli.Application):
                     'host': self._redis_host,
                     'port': self._redis_port,
                     'db': 0
-
                 }
             }, stream)
 
         compiled_contracts_dir = os.path.join('build', 'contracts')
+
         minter_service_init = MinterService(
-            conf_file, compiled_contracts_dir, False)
+            ConfigurationBase(conf_file), compiled_contracts_dir, False)
+
+        if self._ganache:
+            minter_service_init.set_account_address(
+                minter_service_init._w3.personal.listAccounts[0])
 
         minter_address = minter_service_init.get_or_init_account()
 
-        with MinterService(conf_file, compiled_contracts_dir, True) as minter_service:
+        with MinterService(ConfigurationBase(conf_file), compiled_contracts_dir, True) as minter_service:
 
             w3 = minter_service.create_web3()
 

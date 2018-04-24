@@ -1,5 +1,7 @@
 #!/bin/bash
 
+app=${1:-wsgi_app.py}
+
 chmod -R 777 /app/data
 ./bin/wait-for -q -t 60 ethereum_node:8545 -- sleep 5
 /usr/sbin/uwsgi \
@@ -7,7 +9,7 @@ chmod -R 777 /app/data
         --master \
         --plugin python3 \
 	--virtualenv /venv \
-        --mount /minter-service=/app/bin/wsgi_app.py --callable app \
+        --mount /minter-service=/app/bin/${app} --callable app \
         --uid uwsgi --gid uwsgi \
         --die-on-term \
         --processes 4

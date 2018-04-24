@@ -8,10 +8,9 @@ from web3 import Web3
 
 from flask import Flask, abort, request, jsonify
 
-from uwsgidecorators import timer
-from mixbytes.minter import MinterService
+from decimal import Decimal
 from mixbytes.conf import ConfigurationBase
-
+from mixbytes.contract import ContractsRegistry
 
 logging.config.dictConfig({
     'version': 1,
@@ -38,60 +37,62 @@ logging.config.dictConfig({
 logger = logging.getLogger(__name__)
 
 conf_filename = os.path.join(os.path.dirname(
-    __file__), '..', 'conf', 'minter.conf')
+    __file__), '..', 'conf', 'ico_info.conf')
 contracts_directory = os.path.join(
     os.path.dirname(__file__), '..', 'built_contracts')
 
 app = Flask(__name__)
 conf = ConfigurationBase(conf_filename)
-wsgi_minter = MinterService(conf, contracts_directory, wsgi_mode=True)
+contracts_registry = ContractsRegistry(
+    conf.get_provider(), contracts_directory)
+
+assert 'info_contract_address' in conf
+
+contracts_registry.add_contract(
+    'ico_info', conf['info_contract_address'], 'IICOInfo')
 
 
-@timer(300)
-def unlock_account(signum):
-    wsgi_minter.unlockAccount()
+@app.route('/estimateTokens')
+def estimateTokens():
+    tokens = str(contracts_registry.ico_info.estimate(
+        Web3.toWei(_get_ethers(), 'ether')))
+    return jsonify({
+        'tokens': tokens
+    })
 
 
-@app.route('/mintTokens')
-def mint_tokens():
-    wsgi_minter.mint_tokens(_get_mint_id(), _get_address(), _get_tokens())
-    return jsonify({'success': True})
+@app.route('/getTokenBalance')
+def tokenBalance():
+    tokens = str(Decimal(contracts_registry.ico_info.tokenBalanceOf(
+        _get_address())))
+    return jsonify({
+        'balance': tokens
+    })
 
 
-@app.route('/getMintingStatus')
-def get_minting_status():
-    return jsonify(wsgi_minter.get_minting_status(_get_mint_id()))
+@app.route('/getEtherFunds')
+def ethBalance():
+    ethers = str(Decimal(contracts_registry.ico_info.etherFundsOf(
+        _get_address())))
+    return jsonify({
+        'funds': ethers
+    })
 
 
-@app.route('/blockChainHeight')
-def get_blockchain_height():
-    return jsonify(wsgi_minter.blockchain_height())
-
-
-def _get_mint_id():
-    """
-    Extracts mint id from current request parameters.
-    :return: mint id
-    """
-    mint_id = request.args['mint_id']
-    assert isinstance(mint_id, (str, bytes))
-
-    if 0 == len(mint_id):
-        abort(400, 'empty mint_id')
-
-    return mint_id
+def _get_ethers():
+    ether = request.args['ether']
+    try:
+        return int(ether)
+    except ValueError:
+        pass
+    try:
+        return float(ether)
+    except ValueError:
+        abort(400, 'bad ether')
 
 
 def _get_address():
     return _validate_address(request.args['address'])
-
-
-def _get_tokens():
-    tokens = request.args['tokens_amount']
-    try:
-        return int(tokens)
-    except ValueError:
-        abort(400, 'bad tokens_amount')
 
 
 def _validate_address(address):

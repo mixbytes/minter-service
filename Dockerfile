@@ -19,18 +19,22 @@ RUN ./bin/deploy /deploy
 
 FROM centos:latest
 WORKDIR /app
-COPY --from=build /deploy /app
-COPY --from=build /venv /venv
 
 RUN yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm \
 	&& yum install -y python34 uwsgi uwsgi-plugin-python3 \
 	&& yum clean all \
-	&& rm -rf /var/cache/yum \
-	&& mv ./bin/shell /usr/local/bin
+	&& rm -rf /var/cache/yum 
+	
+
+COPY --from=build /deploy /app
+COPY --from=build /venv /venv
+
+RUN mv ./bin/shell /usr/local/bin
         
 ENV PYTHONPATH=/app/lib/
-VOLUME [ "/app/data", "/app/conf/minter.conf" ]
+VOLUME [ "/app/data", "/app/conf/minter.conf", "/app/conf/ico_info.conf" ]
 
 # start app
-CMD [ "./bin/start-service.sh" ]
+ENTRYPOINT [ "./bin/start-service.sh" ]
+CMD [ "wsgi_app.py" ]
 

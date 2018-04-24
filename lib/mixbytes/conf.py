@@ -1,6 +1,6 @@
-
 import os
 import yaml
+from web3 import HTTPProvider, IPCProvider
 
 
 class ConfigurationBase(object):
@@ -14,7 +14,6 @@ class ConfigurationBase(object):
         with open(filename) as fh:
             self._conf = yaml.safe_load(fh)
 
-
     def __getitem__(self, key):
         return self._conf[key]
 
@@ -23,7 +22,6 @@ class ConfigurationBase(object):
 
     def get(self, key, default):
         return self._conf.get(key, default)
-
 
     def _check_existence(self, names):
         for name in names if isinstance(names, (list, tuple)) else (names, ):
@@ -49,8 +47,14 @@ class ConfigurationBase(object):
         for name in names if isinstance(names, (list, tuple)) else (names, ):
             dir_path = str(self._conf[name])
             if not os.path.isdir(dir_path):
-                raise ValueError('setting {}: {} is not a directory'.format(name, dir_path))
+                raise ValueError(
+                    'setting {}: {} is not a directory'.format(name, dir_path))
             if not os.access(dir_path, os.R_OK | os.X_OK):
-                raise ValueError('setting {}: directory {} is not readable'.format(name, dir_path))
+                raise ValueError(
+                    'setting {}: directory {} is not readable'.format(name, dir_path))
             if writable and not os.access(dir_path, os.W_OK):
-                raise ValueError('setting {}: directory {} is not writable'.format(name, dir_path))
+                raise ValueError(
+                    'setting {}: directory {} is not writable'.format(name, dir_path))
+
+    def get_provider(self):
+        return globals()[self._conf['web3_provider']['class']](*(self._conf['web3_provider']['args']))

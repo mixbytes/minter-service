@@ -12,9 +12,17 @@ services:
     volumes:
       - "~/.ethereum:/root/.ethereum"         # blockchain client data directory
 
+
+  ethereum-ganache-node:
+    image: trufflesuite/ganache-cli
+    restart: always
+    ports:
+      - 8548:8545
+
   minter-service:
     build:
       context: .
+    command: wsgi_app.py
     depends_on:
       - redis
       - ethereum_node
@@ -22,4 +30,18 @@ services:
       - "8000:8000"                           # minter-service port (change first digit)
     volumes:
       - "/data:/app/data"                     # minter-service data directory
-      - "/minter.conf:/app/conf/minter.conf"  # config file
+      - "${PWD}/conf/minter.conf:/app/conf/minter.conf"  # config file
+
+  ico-info-service:
+    build:
+      context: .
+    command: wsgi_ico_info.py
+    depends_on:
+      - ethereum_node
+    ports:
+      - "8001:8000"
+    volumes:
+      - "${PWD}/conf/ico_info.conf:/app/conf/ico_info.conf"
+
+
+  
