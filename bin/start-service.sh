@@ -3,7 +3,10 @@
 app=${1:-wsgi_app.py}
 
 chmod -R 777 /app/data
-./bin/wait-for -q -t 60 ethereum_node:8545 -- sleep 5
+if [[ "${WAIT:-yes}" = "yes" ]]; then
+    ./bin/wait-for -q -t 60 ethereum_node:8545 -- sleep 5
+fi
+
 /usr/sbin/uwsgi \
 	--http-socket :8000 \
         --master \
