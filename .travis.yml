@@ -13,9 +13,9 @@ addons:
     sources:
       - deadsnakes
     packages:
-      - python3.5
-      - python3.5-dev
-      - python3.5-venv
+      - python3.6
+      - python3.6-dev
+      - python3.6-venv
 
 env:
   global:
@@ -32,7 +32,7 @@ env:
     - secure: "GzlDFclhIoxGiy0RNsiVf2K2YUkQn+WcQbOLIqHkUdM9O6Ks2jV01icI3IBMzjclET8/YQI0I7E/fjT4JgXkDPeypEaAePcn3wR0nn5de42AeK76bbv7lOMIJYFDwuOlq5YvRbzOdwYKY4k14Ff1juivnRC2pEA30puHfgg9jk4U42WjIoPz/JR6jQ+BuO+Tfl9YZVSv9AuLoMGrQt8QbAGx57bnGHyBbfPEMp4zVVLDlXET+v7oqEvcx3IhkLnwo24Zt+LMv1b3LwWi4orMYz7uOsHkqqOZ88KLeK7VgoJ80z8pSKYrlfeRVLWRquJaK2hNPYD8hdt6rPUVpc1pt/cXwSqXPvipa6JQgoVbsmK9seS2rJ7Eoqi0PoAjLeLlzRpy9K4HuMns65zr6QQdzrrkscUYMjxt+U6xBqZxe3WiG048tP545dJSp47+4KhSGJjN5AkVkBLMD55B73Pid8RP0JrGa7618tJZpak4xlug3Sqw3S5jnNq+KayF7ywspxBgkCbjuoYFLDeJ5jWpipqjm7kEi0fDqqCi3MYhtYtA7mPNauBQ+TfUq9CxXCpTM7oElYlSKTAweBjxM7I+4Petx6UqPbTDgurQmTgGrvJOy3K5l6jrWgxHQ0Kxp+driKrih9SiAZJljdfN2glqf8LR8i9DkQrQ1OKZX+OY45o="
 
 install:
-  - python3.5 -m venv .venv
+  - python3.6 -m venv .venv
   - ./.venv/bin/pip3 install -r requirements.txt
   - npm install --only=dev
 
