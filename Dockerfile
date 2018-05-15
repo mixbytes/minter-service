@@ -9,11 +9,14 @@ ADD ./requirements.txt package.json  /app/
 
 RUN python36 -m venv /venv \
 	&& /venv/bin/pip3 install -r requirements.txt --no-cache-dir
+      
+        
 RUN npm install --prefix /app --only=dev
 
 COPY ./ /app
 
-RUN rm -f ./bin/test_wrapper.sh
+RUN rm -f ./bin/test_wrapper.sh && \
+    ln -s /usr/bin/python3.6 /usr/bin/python3 
 RUN ./bin/deploy /deploy
 
 
@@ -23,7 +26,8 @@ WORKDIR /app
 RUN yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm \        
 	&& yum install -y python36 \
 	&& yum clean all \
-	&& rm -rf /var/cache/yum 
+	&& rm -rf /var/cache/yum \
+        && ln -s /usr/bin/python3.6 /usr/bin/python3 
 	
 
 COPY --from=build /deploy /app
