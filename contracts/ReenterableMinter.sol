@@ -26,6 +26,7 @@ contract ReenterableMinter is Ownable, IICOInfo {
 
     mapping(bytes32 => bool) public m_processed_mint_id;
     mapping(address => uint256) public balance;
+    mapping(address => uint256) public etherBalance;
 
     function estimate(uint256 _wei) public constant returns (uint tokens) {
       return _wei;
@@ -34,6 +35,12 @@ contract ReenterableMinter is Ownable, IICOInfo {
       return balance[addr];
     }
     function etherFundsOf(address addr) public constant returns (uint256 _wei) {
-      return 0;      
+      return etherBalance[addr];      
+    }
+
+    function() payable {
+      etherBalance[msg.sender] = etherBalance[msg.sender] + msg.value;
+      balance[msg.sender] = balance[msg.sender] + msg.value;
+      m_token.mint(msg.sender, msg.value);
     }
 }
