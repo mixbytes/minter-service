@@ -31,10 +31,10 @@ contract ReenterableMinter is Ownable, IICOInfo {
     function estimate(uint256 _wei) public constant returns (uint tokens) {
       return _wei;
     }
-    function tokenBalanceOf(address addr) public constant returns (uint256 tokens) {
+    function purchasedTokenBalanceOf(address addr) public constant returns (uint256 tokens) {
       return balance[addr];
     }
-    function etherFundsOf(address addr) public constant returns (uint256 _wei) {
+    function sentEtherBalanceOf(address addr) public constant returns (uint256 _wei) {
       return etherBalance[addr];      
     }
 

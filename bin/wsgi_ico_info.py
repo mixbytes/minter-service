@@ -63,7 +63,7 @@ def estimateTokens():
 
 @app.route('/getTokenBalance')
 def tokenBalance():
-    tokens = str(Decimal(contracts_registry.ico_info.tokenBalanceOf(
+    tokens = str(Decimal(contracts_registry.ico_info.purchasedTokenBalanceOf(
         _get_address())))
     return jsonify({
         'balance': tokens
@@ -72,7 +72,7 @@ def tokenBalance():
 
 @app.route('/getEtherFunds')
 def ethBalance():
-    ethers = str(Decimal(contracts_registry.ico_info.etherFundsOf(
+    ethers = str(Decimal(contracts_registry.ico_info.sentEtherBalanceOf(
         _get_address())))
     return jsonify({
         'funds': ethers
