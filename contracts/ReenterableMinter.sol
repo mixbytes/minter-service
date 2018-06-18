@@ -5,7 +5,7 @@ import './IICOInfo.sol';
 import 'zeppelin-solidity/contracts/ownership/Ownable.sol';
 
 
-contract ReenterableMinter is Ownable, IICOInfo {
+contract ReenterableMinter is Ownable {
     event MintSuccess(bytes32 indexed mint_id);
 
     function ReenterableMinter(IMintableToken token){
@@ -17,30 +17,10 @@ contract ReenterableMinter is Ownable, IICOInfo {
         if (!m_processed_mint_id[mint_id]) {
             m_token.mint(to, amount);
             m_processed_mint_id[mint_id] = true;
-            balance[to] = balance[to] + amount;
         }
         MintSuccess(mint_id);
     }
 
     IMintableToken public m_token;
-
     mapping(bytes32 => bool) public m_processed_mint_id;
-    mapping(address => uint256) public balance;
-    mapping(address => uint256) public etherBalance;
-
-    function estimate(uint256 _wei) public constant returns (uint tokens) {
-      return _wei;
-    }
-    function purchasedTokenBalanceOf(address addr) public constant returns (uint256 tokens) {
-      return balance[addr];
-    }
-    function sentEtherBalanceOf(address addr) public constant returns (uint256 _wei) {
-      return etherBalance[addr];      
-    }
-
-    function() payable {
-      etherBalance[msg.sender] = etherBalance[msg.sender] + msg.value;
-      balance[msg.sender] = balance[msg.sender] + msg.value;
-      m_token.mint(msg.sender, msg.value);
-    }
 }
