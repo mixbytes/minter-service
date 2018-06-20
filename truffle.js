@@ -1,3 +1,5 @@
+
+
 module.exports = {
   networks: {
     development: {
@@ -14,7 +16,7 @@ module.exports = {
 
     rinkeby: {  // testnet
       host: "localhost",
-      port: 8547,
+      port: 8545,
       network_id: 4
     }
   }
