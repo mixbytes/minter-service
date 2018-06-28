@@ -63,11 +63,10 @@ def estimateTokens():
     except:
         payment = Web3.toWei(_get_ethers(), 'ether')
 
-        m_currentTokensSold = contracts_registry.ico_info.m_currentTokensSold()
-        c_priceRiseTokenAmount = contracts_registry.ico_info.c_priceRiseTokenAmount()
-        centsPerToken = contracts_registry.ico_info.c_centsPerToken()
-        m_ETHPriceInCents = contracts_registry.ico_info.m_ETHPriceInCents()
-        c_maximumTokensSold = contracts_registry.ico_info.c_maximumTokensSold()
+        m_currentTokensSold = contracts_registry.ico_info._contract.call().m_currentTokensSold()
+        centsPerToken = contracts_registry.ico_info._contract.call().c_centsPerToken()
+        m_ETHPriceInCents = contracts_registry.ico_info._contract.call().m_ETHPriceInCents()
+        c_maximumTokensSold = contracts_registry.ico_info._contract.call().c_maximumTokensSold()
 
         # amount that can be bought depending on the price
         tokenAmount = (payment * m_ETHPriceInCents) / centsPerToken
@@ -90,7 +89,7 @@ def estimateTokens():
         if (payment * m_ETHPriceInCents) / Web3.toWei(1, 'ether') >= 3000000:
             tokenAmount = tokenAmount + (tokenAmount / 5)
 
-        tokens = str(tokenAmount)
+        tokens = str(tokenAmount/10**18)
 
     return jsonify({
         'tokens': tokens
@@ -104,7 +103,7 @@ def tokenBalance():
             _get_address())))
     except:
         tokens = str(Decimal(contracts_registry.token.balanceOf(
-            _get_address())))
+            _get_address()))/10**18)
 
     return jsonify({
         'balance': tokens
