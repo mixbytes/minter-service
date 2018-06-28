@@ -47,12 +47,12 @@ contracts_registry = ContractsRegistry(
     conf.get_provider(), contracts_directory)
 
 assert 'info_contract_address' in conf
-try:
-    contracts_registry.add_contract(
-        'ico_info', conf['info_contract_address'], 'IICOInfo')
-except:
-    contracts_registry.add_contract(
-        'token', conf['token_contract_address'], 'ERC20')
+
+contracts_registry.add_contract(
+    'ico_info', conf['info_contract_address'], 'IICOInfo')
+
+contracts_registry.add_contract(
+    'token', conf['token_contract_address'], 'ERC20')
 
 
 @app.route('/estimateTokens')
