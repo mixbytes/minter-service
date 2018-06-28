@@ -89,7 +89,7 @@ def estimateTokens():
         if (payment * m_ETHPriceInCents) / Web3.toWei(1, 'ether') >= 3000000:
             tokenAmount = tokenAmount + (tokenAmount / 5)
 
-        tokens = str(tokenAmount/10**18)
+        tokens = str(tokenAmount)
 
     return jsonify({
         'tokens': tokens
@@ -103,7 +103,7 @@ def tokenBalance():
             _get_address())))
     except:
         tokens = str(Decimal(contracts_registry.token.balanceOf(
-            _get_address()))/10**18)
+            _get_address())))
 
     return jsonify({
         'balance': tokens
@@ -112,8 +112,11 @@ def tokenBalance():
 
 @app.route('/getEtherFunds')
 def ethBalance():
-    ethers = str(Decimal(contracts_registry.ico_info.sentEtherBalanceOf(
-        _get_address())))
+    try:
+        ethers = str(Decimal(contracts_registry.ico_info.sentEtherBalanceOf(
+            _get_address())))
+    except:
+        ethers = str(0)
     return jsonify({
         'funds': ethers
     })
