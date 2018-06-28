@@ -51,6 +51,9 @@ assert 'info_contract_address' in conf
 contracts_registry.add_contract(
     'ico_info', conf['info_contract_address'], 'IICOInfo')
 
+contracts_registry.add_contract(
+    'token', conf['info_contract_address'], 'ERC20')
+
 
 @app.route('/estimateTokens')
 def estimateTokens():
@@ -63,8 +66,13 @@ def estimateTokens():
 
 @app.route('/getTokenBalance')
 def tokenBalance():
-    tokens = str(Decimal(contracts_registry.ico_info.purchasedTokenBalanceOf(
-        _get_address())))
+    try:
+        tokens = str(Decimal(contracts_registry.ico_info.purchasedTokenBalanceOf(
+            _get_address())))
+    except:
+        tokens = str(Decimal(contracts_registry.token.balanceOf(
+            _get_address())))
+
     return jsonify({
         'balance': tokens
     })
