@@ -52,7 +52,7 @@ try:
         'ico_info', conf['info_contract_address'], 'IICOInfo')
 except:
     contracts_registry.add_contract(
-        'token', conf['info_contract_address'], 'ERC20')
+        'token', conf['token_contract_address'], 'ERC20')
 
 
 @app.route('/estimateTokens')
@@ -61,7 +61,36 @@ def estimateTokens():
         tokens = str(contracts_registry.ico_info.estimate(
             Web3.toWei(_get_ethers(), 'ether')))
     except:
-        tokens = str(0)
+        payment = Web3.toWei(_get_ethers(), 'ether')
+
+        m_currentTokensSold = contracts_registry.ico_info.m_currentTokensSold()
+        c_priceRiseTokenAmount = contracts_registry.ico_info.c_priceRiseTokenAmount()
+        centsPerToken = contracts_registry.ico_info.c_centsPerToken()
+        m_ETHPriceInCents = contracts_registry.ico_info.m_ETHPriceInCents()
+        c_maximumTokensSold = contracts_registry.ico_info.c_maximumTokensSold()
+
+        # amount that can be bought depending on the price
+        tokenAmount = (payment * m_ETHPriceInCents) / centsPerToken
+
+        # number of tokens available before the cap is reached
+        maxTokensAllowed = c_maximumTokensSold - m_currentTokensSold
+
+        # if amount of tokens we can buy is more than the amount available
+        if tokenAmount > maxTokensAllowed:
+            # price of 1 full token in ether-wei
+            # example 60 * 1e18 / 36900 = 0.162 * 1e18 = 0.162 eth
+            ethPerToken = (centsPerToken*Web3.toWei(1, 'ether')
+                           ) / m_ETHPriceInCents
+            # change amount to maximum allowed
+            tokenAmount = maxTokensAllowed
+            # how much exactly to charge
+            payment = (ethPerToken * tokenAmount) / Web3.toWei(1, 'ether')
+
+        # calculating a 20 % bonus if the price of bought tokens is more than $30k
+        if (payment * m_ETHPriceInCents) / Web3.toWei(1, 'ether') >= 3000000:
+            tokenAmount = tokenAmount + (tokenAmount / 5)
+
+        tokens = str(tokenAmount)
 
     return jsonify({
         'tokens': tokens
