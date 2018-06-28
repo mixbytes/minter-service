@@ -57,8 +57,12 @@ contracts_registry.add_contract(
 
 @app.route('/estimateTokens')
 def estimateTokens():
-    tokens = str(contracts_registry.ico_info.estimate(
-        Web3.toWei(_get_ethers(), 'ether')))
+    try:
+        tokens = str(contracts_registry.ico_info.estimate(
+            Web3.toWei(_get_ethers(), 'ether')))
+    except:
+        tokens = str(0)
+
     return jsonify({
         'tokens': tokens
     })
