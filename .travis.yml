@@ -49,7 +49,7 @@ script:
     ./test/i/run.sh &&
     /bin/bash .registry/label_containers.sh &&
     docker build -t $IMAGE_NAME . &&
-  - /bin/bash .registry/upload_to_registry.sh $IMAGE_NAME
+    /bin/bash .registry/upload_to_registry.sh $IMAGE_NAME
 
 
 notifications:
