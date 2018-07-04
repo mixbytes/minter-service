@@ -4,6 +4,4 @@ contract IICOInfo {
   function estimate(uint256 _wei) public constant returns (uint tokens);
   function purchasedTokenBalanceOf(address addr) public constant returns (uint256 tokens);
   function sentEtherBalanceOf(address addr) public constant returns (uint256 _wei);
-
-  function getNonEtherController() public constant returns (address);
 }
