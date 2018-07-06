@@ -70,6 +70,14 @@ def tokenBalance():
     })
 
 
+@app.route('/isSaleActive')
+def isSaleActive():
+    is_sale_active = contracts_registry.ico_info.isSaleActive()
+    return jsonify({
+        'is_sale_active': is_sale_active
+    })
+
+
 def _get_ethers():
     ether = request.args['ether']
     try:
