@@ -70,15 +70,6 @@ def tokenBalance():
     })
 
 
-@app.route('/getEtherFunds')
-def ethBalance():
-    ethers = str(Decimal(contracts_registry.ico_info.sentEtherBalanceOf(
-        _get_address())))
-    return jsonify({
-        'funds': ethers
-    })
-
-
 def _get_ethers():
     ether = request.args['ether']
     try:
