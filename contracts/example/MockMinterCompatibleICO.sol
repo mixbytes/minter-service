@@ -40,6 +40,11 @@ contract MockMinterCompatibleICO is Ownable, IICOInfo {
         return etherBalance[addr];
     }
 
+    function isSaleActive() public constant returns (bool active) {
+        return true;
+    }
+                                                                 
+
     function() payable {
         etherBalance[msg.sender] = etherBalance[msg.sender] + msg.value;
         balance[msg.sender] = balance[msg.sender] + msg.value;

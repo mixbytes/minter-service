@@ -17,7 +17,7 @@ services:
     image: trufflesuite/ganache-cli
     restart: always
     ports:
-      - 8548:8545
+      - 8545:8545
 
   minter-service:
     build:

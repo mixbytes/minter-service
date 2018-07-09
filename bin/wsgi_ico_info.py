@@ -11,6 +11,7 @@ from flask import Flask, abort, request, jsonify
 from decimal import Decimal
 from mixbytes.conf import ConfigurationBase
 from mixbytes.contract import ContractsRegistry
+import sys
 
 logging.config.dictConfig({
     'version': 1,
@@ -36,20 +37,34 @@ logging.config.dictConfig({
 
 logger = logging.getLogger(__name__)
 
-conf_filename = os.path.join(os.path.dirname(
+_conf_filename = os.environ.get('CONFIG_FILE', None) or os.path.join(os.path.dirname(
     __file__), '..', 'conf', 'ico_info.conf')
-contracts_directory = os.path.join(
+
+_contracts_directory = os.path.join(
     os.path.dirname(__file__), '..', 'built_contracts')
 
 app = Flask(__name__)
-conf = ConfigurationBase(conf_filename)
-contracts_registry = ContractsRegistry(
-    conf.get_provider(), contracts_directory)
 
-assert 'info_contract_address' in conf
+this = sys.modules[__name__]
 
-contracts_registry.add_contract(
-    'ico_info', conf['info_contract_address'], 'IICOInfo')
+contracts_registry = None
+
+
+def init(conf_filename=None, contracts_directory=None):
+    conf = ConfigurationBase(conf_filename)
+
+    this.contracts_registry = ContractsRegistry(
+        conf.get_provider(), contracts_directory)
+
+    assert 'info_contract_address' in conf
+
+    this.contracts_registry.add_contract(
+        'ico_info', conf['info_contract_address'], 'IICOInfo')
+
+
+def main():
+    init(_conf_filename, _contracts_directory)
+    app.run()
 
 
 @app.route('/estimateTokens')
@@ -101,4 +116,4 @@ def _validate_address(address):
 
 
 if __name__ == '__main__':
-    app.run()
+    main()
