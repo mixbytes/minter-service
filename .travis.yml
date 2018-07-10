@@ -46,6 +46,7 @@ script:
   - npm test &&
     ./node_modules/.bin/truffle compile &&
     ./node_modules/.bin/truffle test &&
+    ./node_modules/.bin/truffle migrate &&
     source .venv/bin/activate &&
     ./test/i/run.sh &&
     /bin/bash .registry/label_containers.sh &&
