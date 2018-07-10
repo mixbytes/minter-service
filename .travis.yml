@@ -42,6 +42,7 @@ before_script:
   - ecs-cli configure profile --profile-name travis --access-key $AWS_ACCESS_KEY_ID --secret-key $AWS_SECRET_ACCESS_KEY
 
 script:
+  - export PYTHONPATH=$(pwd)/bin
   - npm test &&
     ./node_modules/.bin/truffle compile &&
     ./node_modules/.bin/truffle test &&
