@@ -45,6 +45,7 @@ _contracts_directory = os.path.join(
 
 app = Flask(__name__)
 
+
 this = sys.modules[__name__]
 
 contracts_registry = None
@@ -62,8 +63,15 @@ def init(conf_filename=None, contracts_directory=None):
         'ico_info', conf['info_contract_address'], 'IICOInfo')
 
 
+if __name__ != "__main__":
+    try:
+        init(_conf_filename, _contracts_directory)
+    except Exception:
+        logger.warn(
+            "Can't instantiate with default config and contract directory")
+
+
 def main():
-    init(_conf_filename, _contracts_directory)
     app.run()
 
 
