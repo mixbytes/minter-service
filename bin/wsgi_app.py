@@ -46,6 +46,14 @@ app = Flask(__name__)
 conf = ConfigurationBase(conf_filename)
 wsgi_minter = MinterService(conf, contracts_directory, wsgi_mode=True)
 
+contracts_registry = ContractsRegistry(
+    conf.get_provider(), contracts_directory)
+
+assert 'info_contract_address' in conf
+
+contracts_registry.add_contract(
+    'ico_info', conf['info_contract_address'], 'IICOInfo')
+
 
 @timer(300)
 def unlock_account(signum):
@@ -54,6 +62,12 @@ def unlock_account(signum):
 
 @app.route('/mintTokens')
 def mint_tokens():
+    if not contracts_registry.ico_info.isSaleActive():
+        return jsonify({
+            'success': False,
+            'message': 'sale is not active'
+        })
+
     wsgi_minter.mint_tokens(_get_mint_id(), _get_address(), _get_tokens())
     return jsonify({'success': True})
 

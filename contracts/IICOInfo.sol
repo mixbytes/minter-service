@@ -3,9 +3,7 @@ pragma solidity ^0.4.15;
 contract IICOInfo {
   function estimate(uint256 _wei) public constant returns (uint tokens);
   function purchasedTokenBalanceOf(address addr) public constant returns (uint256 tokens);
-  function sentEtherBalanceOf(address addr) public constant returns (uint256 _wei);
 
-  function getNonEtherController() public constant returns (address);
 
    /// @notice minimum investment in cents
     uint public c_MinInvestmentInCents = 10000; // $100
@@ -57,4 +55,5 @@ contract IICOInfo {
 
     /// @dev set just enough gas because the rest is not refunded
     uint public m_callbackGas = 200000;
+  function isSaleActive() public constant returns (bool active);
 }
