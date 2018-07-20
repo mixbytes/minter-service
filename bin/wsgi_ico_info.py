@@ -61,6 +61,8 @@ def init(conf_filename=None, contracts_directory=None):
 
     this.contracts_registry.add_contract(
         'ico_info', conf['info_contract_address'], 'IICOInfo')
+    this.contracts_registry.add_contract(
+        'token', conf['token_contract_address'], 'ERC20')
 
 
 if __name__ != "__main__":
@@ -75,22 +77,18 @@ def main():
     app.run()
 
 
-contracts_registry.add_contract(
-    'token', conf['token_contract_address'], 'ERC20')
-
-
 @app.route('/estimateTokens')
 def estimateTokens():
     try:
-        tokens = str(contracts_registry.ico_info.estimate(
+        tokens = str(this.contracts_registry.ico_info.estimate(
             Web3.toWei(_get_ethers(), 'ether')))
     except:
         payment = Web3.toWei(_get_ethers(), 'ether')
 
-        m_currentTokensSold = contracts_registry.ico_info._contract.call().m_currentTokensSold()
-        centsPerToken = contracts_registry.ico_info._contract.call().c_centsPerToken()
-        m_ETHPriceInCents = contracts_registry.ico_info._contract.call().m_ETHPriceInCents()
-        c_maximumTokensSold = contracts_registry.ico_info._contract.call().c_maximumTokensSold()
+        m_currentTokensSold = this.contracts_registry.ico_info._contract.call().m_currentTokensSold()
+        centsPerToken = this.contracts_registry.ico_info._contract.call().c_centsPerToken()
+        m_ETHPriceInCents = this.contracts_registry.ico_info._contract.call().m_ETHPriceInCents()
+        c_maximumTokensSold = this.contracts_registry.ico_info._contract.call().c_maximumTokensSold()
 
         # amount that can be bought depending on the price
         tokenAmount = (payment * m_ETHPriceInCents) / centsPerToken
@@ -123,10 +121,10 @@ def estimateTokens():
 @app.route('/getTokenBalance')
 def tokenBalance():
     try:
-        tokens = str(Decimal(contracts_registry.ico_info.purchasedTokenBalanceOf(
+        tokens = str(Decimal(this.contracts_registry.ico_info.purchasedTokenBalanceOf(
             _get_address())))
     except:
-        tokens = str(Decimal(contracts_registry.token.balanceOf(
+        tokens = str(Decimal(this.contracts_registry.token.balanceOf(
             _get_address())))
 
     return jsonify({
@@ -137,7 +135,7 @@ def tokenBalance():
 @app.route('/isSaleActive')
 def isSaleActive():
 
-    is_sale_active = contracts_registry.ico_info.isSaleActive()
+    is_sale_active = this.contracts_registry.ico_info.isSaleActive()
     return jsonify({
         'is_sale_active': is_sale_active
     })
