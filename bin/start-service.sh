@@ -8,11 +8,11 @@ if [[ "${WAIT:-yes}" = "yes" ]]; then
 fi
 
 /usr/sbin/uwsgi \
-	--http-socket :8000 \
-        --master \
-        --plugin python3 \
-	--virtualenv /venv \
-        --mount /minter-service=/app/bin/${app} --callable app \
-        --uid uwsgi --gid uwsgi \
-        --die-on-term \
-        --processes 4
+    --http-socket :8000 \
+    --master \
+    --plugin python36 \
+    --virtualenv /venv \
+    --mount /minter-service=/app/bin/${app} --callable app \
+    --uid uwsgi --gid uwsgi \
+    --die-on-term \
+    --processes 4
