@@ -10,7 +10,7 @@ fi
 /usr/sbin/uwsgi \
     --http-socket :8000 \
     --master \
-    --plugin python3 \
+    --plugin python36 \
     --virtualenv /venv \
     --mount /minter-service=/app/bin/${app} --callable app \
     --uid uwsgi --gid uwsgi \
