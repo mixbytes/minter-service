@@ -289,7 +289,7 @@ class MinterService(object):
 
             if tx.blockNumber is None:
 
-                new_gas_price = tx.gasPrice * 1.1
+                new_gas_price = int(tx.gasPrice * 1.1)
                 new_tx_hash = self.replaceTransaction(w3_instance, tx.hash,
                                                       {"gasPrice": new_gas_price})
                 logger.info("replace transaction %s with %s and new gas price %d" % (
