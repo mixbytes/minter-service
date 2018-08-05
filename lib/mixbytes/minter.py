@@ -256,7 +256,7 @@ class MinterService(object):
         w3_instance = self._w3
         if not self.pending_transactions:
             self.pending_transactions = True
-            pending_txs_for_addr = w3_instance.txpool.content()['pending'].get(
+            pending_txs_for_addr = w3_instance.txpool.content['pending'].get(
                 self._wsgi_mode_state.get_account_address(), {})
             for txs in pending_txs_for_addr.values():
                 hashes = map(lambda e: e['hash'], txs)
