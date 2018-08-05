@@ -18,9 +18,21 @@ from mixbytes.conf import ConfigurationBase
 from mixbytes import contract
 import functools
 import math
-from toolz import assoc
+from toolz import assoc, merge
 
 logger = logging.getLogger(__name__)
+
+
+VALID_TRANSACTION_PARAMS = [
+    'from',
+    'to',
+    'gas',
+    'gasPrice',
+    'value',
+    'data',
+    'nonce',
+    'chainId',
+]
 
 
 class MinterService(object):
@@ -252,6 +264,41 @@ class MinterService(object):
 
         return self.replace_transaction(web3, current_transaction, new_transaction)
 
+    def extract_valid_transaction_params(self, transaction_params):
+        extracted_params = {key: transaction_params[key]
+                            for key in VALID_TRANSACTION_PARAMS if key in transaction_params}
+
+        if extracted_params.get('data') is not None:
+            if transaction_params.get('input') is not None:
+                if extracted_params['data'] != transaction_params['input']:
+                    msg = 'failure to handle this transaction due to both "input: {}" and'
+                    msg += ' "data: {}" are populated. You need to resolve this conflict.'
+                    err_vals = (
+                        transaction_params['input'], extracted_params['data'])
+                    raise AttributeError(msg.format(*err_vals))
+                else:
+                    return extracted_params
+            else:
+                return extracted_params
+        elif extracted_params.get('data') is None:
+            if transaction_params.get('input') is not None:
+                return assoc(extracted_params, 'data', transaction_params['input'])
+            else:
+                return extracted_params
+        else:
+            raise Exception(
+                "Unreachable path: transaction's 'data' is either set or not set")
+
+    def modifyTransaction(self, web3, transaction_hash, **transaction_params):
+      #  assert_valid_transaction_params(transaction_params)
+        current_transaction = self.get_required_transaction(
+            web3, transaction_hash)
+        current_transaction_params = self.extract_valid_transaction_params(
+            current_transaction)
+        new_transaction = merge(current_transaction_params, transaction_params)
+
+        return self.replace_transaction(web3, current_transaction, new_transaction)
+
     def resend_pending_transactions(self):
         w3_instance = self._w3
         if not self.pending_transactions:
@@ -290,8 +337,8 @@ class MinterService(object):
             if tx.blockNumber is None:
 
                 new_gas_price = int(tx.gasPrice * 1.1)
-                new_tx_hash = self.replaceTransaction(w3_instance, tx.hash,
-                                                      {"gasPrice": new_gas_price})
+                new_tx_hash = self.modifyTransaction(w3_instance, tx.hash,
+                                                     {"gasPrice": new_gas_price})
                 logger.info("replace transaction %s with %s and new gas price %d" % (
                     tx.hash, new_tx_hash, new_gas_price))
                 _silent_redis_call(
