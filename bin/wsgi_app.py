@@ -11,6 +11,8 @@ from flask import Flask, abort, request, jsonify
 from uwsgidecorators import timer
 from mixbytes.minter import MinterService
 from mixbytes.conf import ConfigurationBase
+from mixbytes.contract import ContractsRegistry
+
 
 
 logging.config.dictConfig({
