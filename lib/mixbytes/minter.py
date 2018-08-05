@@ -38,6 +38,7 @@ class MinterService(object):
 
         if wsgi_mode:
             self.unlockAccount()
+        self.pending_transactions = None
 
     def unlockAccount(self):
         logger.debug("Unlock account %s" %
@@ -196,6 +197,15 @@ class MinterService(object):
         except RuntimeError:
             return False
 
+    def resend_pending_transactions():
+        w3_instance = self._w3
+        if not self.pending_transactions:
+            self.pending_transactions = []
+            for txs in tw3_instance.txpool.content()['pending'][self._wsgi_mode_state.get_account_address()].values():
+                self.pending_transactions = self.pending_transactions + list(txs)
+        
+                
+        
     def deploy_contract(self, token_address):
         """
         Deploys new ReenterableMinter contract
