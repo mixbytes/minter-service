@@ -290,7 +290,7 @@ class MinterService(object):
                 "Unreachable path: transaction's 'data' is either set or not set")
 
     def modifyTransaction(self, web3, transaction_hash, **transaction_params):
-      #  assert_valid_transaction_params(transaction_params)
+        #  assert_valid_transaction_params(transaction_params)
         current_transaction = self.get_required_transaction(
             web3, transaction_hash)
         current_transaction_params = self.extract_valid_transaction_params(
