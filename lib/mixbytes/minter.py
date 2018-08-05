@@ -338,7 +338,7 @@ class MinterService(object):
 
                 new_gas_price = int(tx.gasPrice * 1.1)
                 new_tx_hash = self.modifyTransaction(w3_instance, tx.hash,
-                                                     {"gasPrice": new_gas_price})
+                                                     gasPrice=new_gas_price)
                 logger.info("replace transaction %s with %s and new gas price %d" % (
                     tx.hash, new_tx_hash, new_gas_price))
                 _silent_redis_call(
