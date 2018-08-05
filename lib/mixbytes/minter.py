@@ -217,7 +217,7 @@ class MinterService(object):
             return False
 
     def prepare_replacement_transaction(self, web3, current_transaction, new_transaction):
-        if current_transaction['blockHash'] is not None:
+        if current_transaction['blockNumber'] is not None:
             raise ValueError('Supplied transaction with hash {} has already been mined'
                              .format(current_transaction['hash']))
         if 'nonce' in new_transaction and new_transaction['nonce'] != current_transaction['nonce']:
@@ -306,7 +306,10 @@ class MinterService(object):
             pending_txs_for_addr = w3_instance.txpool.content['pending'].get(
                 self._wsgi_mode_state.get_account_address(), {})
             for txs in pending_txs_for_addr.values():
-                hashes = map(lambda e: e['hash'], txs)
+                if type(txs) is list:
+                    hashes = map(lambda e: e['hash'], txs)
+                else:
+                    hashes = [txs['hash']]
                 for hash_ in hashes:
                     logger.info(
                         "init pending transaction from node %s" % (hash_))
@@ -337,6 +340,7 @@ class MinterService(object):
             if tx.blockNumber is None:
 
                 new_gas_price = int(tx.gasPrice * 1.1)
+
                 new_tx_hash = self.modifyTransaction(w3_instance, tx.hash,
                                                      gasPrice=new_gas_price)
                 logger.info("replace transaction %s with %s and new gas price %d" % (
