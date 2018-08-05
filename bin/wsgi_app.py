@@ -14,7 +14,6 @@ from mixbytes.conf import ConfigurationBase
 from mixbytes.contract import ContractsRegistry
 
 
-
 logging.config.dictConfig({
     'version': 1,
     'disable_existing_loggers': False,
@@ -60,6 +59,11 @@ contracts_registry.add_contract(
 @timer(300)
 def unlock_account(signum):
     wsgi_minter.unlockAccount()
+
+
+@timer(60)
+def resend_pending_transactions(signum):
+    wsgi_minter.resend_pending_transactions()
 
 
 @app.route('/mintTokens')
