@@ -140,6 +140,15 @@ def isSaleActive():
         'is_sale_active': is_sale_active
     })
 
+@app.route('/getAcceptedUsd')
+def acceptedUsd():
+    try:
+        acceptedUsd = this.contracts_registry.ico_info._contract.call().m_currentUsdAccepted() / 100
+    except:
+        acceptedUsd = 0
+    return jsonify({
+        'value': acceptedUsd
+    })
 
 def _get_ethers():
     ether = request.args['ether']
