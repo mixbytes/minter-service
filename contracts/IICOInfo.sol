@@ -56,4 +56,6 @@ contract IICOInfo {
     /// @dev set just enough gas because the rest is not refunded
     uint public m_callbackGas = 200000;
   function isSaleActive() public constant returns (bool active);
+  
+  uint public m_currentUsdAccepted;
 }

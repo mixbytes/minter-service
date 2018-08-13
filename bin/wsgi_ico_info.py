@@ -144,7 +144,8 @@ def isSaleActive():
 def acceptedUsd():
     try:
         acceptedUsd = this.contracts_registry.ico_info._contract.call().m_currentUsdAccepted() / 100
-    except:
+    except Exception as e:
+        logger.warn("Unknown method %s" % (str(e)))
         acceptedUsd = 0
     return jsonify({
         'value': acceptedUsd
