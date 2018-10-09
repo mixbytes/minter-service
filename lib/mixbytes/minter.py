@@ -38,6 +38,7 @@ VALID_TRANSACTION_PARAMS = [
 class MinterService(object):
     TX_BLOCK_HEIGHT_KEY_PREFIX = 'bh'
     PENDING_TRANSACTIONS_SET_KEY = 'pending_transactions'
+    TX_MINT_ID_KEY_PREFIX = 'mid_'
 
     def __init__(self, config, contracts_directory, wsgi_mode=False):
 
@@ -89,6 +90,10 @@ class MinterService(object):
         # remembering tx hash for get_minting_status references - optional step
         _silent_redis_call(self._redis.lpush, self._redis_mint_tx_key(
             mint_id), Web3.toBytes(hexstr=tx_hash))
+
+        _silent_redis_call(self._redis.set, self._redis_tx_mint_id_key(
+            tx_hash), mint_id, ex=3600)
+
         logger.info("add pending transaction %s" % (tx_hash))
         _silent_redis_call(
             self._redis.sadd, self.PENDING_TRANSACTIONS_SET_KEY, Web3.toBytes(hexstr=tx_hash))
@@ -103,6 +108,9 @@ class MinterService(object):
         for k, v in kwargs.items():
             res[k] = v
         return res
+
+    def _redis_tx_mint_id_key(self, tx_hash):
+        return self.TX_MINT_ID_KEY_PREFIX + tx_hash
 
     def get_minting_status(self, mint_id) -> dict:
         """
@@ -134,6 +142,7 @@ class MinterService(object):
             rest_confirmations = conf.get(
                 'require_confirmations', 0) - confirmations
             return self._build_status('minting', confirmations=confirmations, rest_confirmations=rest_confirmations)
+
         # finding all known transaction ids which could mint this mint_id
         tx_bin_ids = _silent_redis_call(
             self._redis.lrange, self._redis_mint_tx_key(mint_id), 0, -1) or []
@@ -144,6 +153,7 @@ class MinterService(object):
 
         # searching for failed transactions
         for tx in txs:
+
             if tx.blockNumber is None:
                 continue  # not mined yet
 
@@ -217,9 +227,9 @@ class MinterService(object):
             return False
 
     def prepare_replacement_transaction(self, web3, current_transaction, new_transaction):
-        if current_transaction['blockNumber'] is not None:
-            raise ValueError('Supplied transaction with hash {} has already been mined'
-                             .format(current_transaction['hash']))
+        # if current_transaction['blockNumber'] is not None:
+        #     raise ValueError('Supplied transaction with hash {} has already been mined'
+        #                      .format(current_transaction['hash']))
         if 'nonce' in new_transaction and new_transaction['nonce'] != current_transaction['nonce']:
             raise ValueError(
                 'Supplied nonce in new_transaction must match the pending transaction')
@@ -349,6 +359,18 @@ class MinterService(object):
                     self._redis.srem, self.PENDING_TRANSACTIONS_SET_KEY, Web3.toBytes(hexstr=tx.hash))
                 _silent_redis_call(
                     self._redis.sadd, self.PENDING_TRANSACTIONS_SET_KEY, Web3.toBytes(hexstr=new_tx_hash))
+                mint_id = _silent_redis_call(
+                    self._redis.get, self._redis_tx_mint_id_key(tx.hash))
+
+                if mint_id is not None:
+                    _silent_redis_call(self._redis.delete,
+                                       self._redis_tx_mint_id_key(tx.hash))
+                    _silent_redis_call(
+                        self._redis.set, self._redis_tx_mint_id_key(new_tx_hash), mint_id, ex=3600)
+
+                    _silent_redis_call(self._redis.lpush, self._redis_mint_tx_key(
+                        Web3.toBytes(mint_id)), Web3.toBytes(hexstr=new_tx_hash))
+
             else:
                 logger.info("remove non pending transaction %s" % (
                     tx.hash))
