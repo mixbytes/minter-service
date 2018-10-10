@@ -61,6 +61,8 @@ def init(conf_filename=None, contracts_directory=None):
 
     this.contracts_registry.add_contract(
         'ico_info', conf['info_contract_address'], 'IICOInfo')
+    this.contracts_registry.add_contract(
+        'token', conf['token_contract_address'], 'ERC20')
 
 
 if __name__ != "__main__":
@@ -77,8 +79,12 @@ def main():
 
 @app.route('/estimateTokens')
 def estimateTokens():
-    tokens = str(contracts_registry.ico_info.estimate(
-        Web3.toWei(_get_ethers(), 'ether')))
+    try:
+        tokens = str(this.contracts_registry.ico_info.estimate(
+            Web3.toWei(_get_ethers(), 'ether')))
+    except:
+        tokens = '0'
+
     return jsonify({
         'tokens': tokens
     })
@@ -86,8 +92,13 @@ def estimateTokens():
 
 @app.route('/getTokenBalance')
 def tokenBalance():
-    tokens = str(Decimal(contracts_registry.ico_info.purchasedTokenBalanceOf(
-        _get_address())))
+    try:
+        tokens = str(Decimal(this.contracts_registry.ico_info.purchasedTokenBalanceOf(
+            _get_address())))
+    except:
+        tokens = str(Decimal(this.contracts_registry.token.balanceOf(
+            _get_address())))
+
     return jsonify({
         'balance': tokens
     })
@@ -95,11 +106,22 @@ def tokenBalance():
 
 @app.route('/isSaleActive')
 def isSaleActive():
-    is_sale_active = contracts_registry.ico_info.isSaleActive()
+
+    is_sale_active = this.contracts_registry.ico_info.isSaleActive()
     return jsonify({
         'is_sale_active': is_sale_active
     })
 
+@app.route('/getAcceptedUsd')
+def acceptedUsd():
+    try:
+        acceptedUsd = this.contracts_registry.ico_info._contract.call().m_currentUsdAccepted() / 100
+    except Exception as e:
+        logger.warn("Unknown method %s" % (str(e)))
+        acceptedUsd = 0
+    return jsonify({
+        'value': acceptedUsd
+    })
 
 def _get_ethers():
     ether = request.args['ether']

@@ -15,6 +15,7 @@ sys.path.append(os.path.realpath(os.path.join(
 
 from mixbytes.minter import MinterService, UsageError, get_receipt_status
 from mixbytes.conf import ConfigurationBase
+from web3.utils import datastructures
 
 
 class TestMinterService(unittest.TestCase):
@@ -179,6 +180,58 @@ class TestMinterService(unittest.TestCase):
             {'from': w3.eth.accounts[0], 'to': self.__class__.minter_account, 'value': w3.toWei(1, 'ether')})
         _get_receipt_blocking(tx_hash, w3)
         self.assertLess(height, minter.blockchain_height())
+
+    # def test_6_resend_transactions(self):
+    #     minter = self.__class__.createMinter(True)
+    #     w3 = minter.get_web3()
+    #     addr = minter.get_or_init_account()
+    #     investor1 = w3.toBytes(hexstr='0x{:040X}'.format(11))
+    #     tx_hash = minter.mint_tokens('m2', investor1, 12000)
+    #     pending = {
+    #         'pending': {
+    #             addr: {
+    #                 806: {
+    #                     'blockHash': "0x0000000000000000000000000000000000000000000000000000000000000000",
+    #                     'blockNumber': None,
+    #                     'from': "0x0216d5032f356960cd3749c31ab34eeff21b3395",
+    #                     'gas': "0x5208",
+    #                     'gasPrice': "0xba43b7400",
+    #                     'hash': tx_hash,
+    #                     'input': "0x",
+    #                     'nonce': "0x326",
+    #                     'to': "0x7f69a91a3cf4be60020fb58b893b7cbb65376db8",
+    #                     'transactionIndex': None,
+    #                     "value": "0x19a99f0cf456000"
+    #                 }
+    #             }
+    #         }
+    #     }
+    #     import random
+
+    #     def get_old_transaction(hash_):
+    #         w3_ = minter.create_web3()
+    #         tx = w3_.eth.getTransaction(tx_hash)
+    #         return datastructures.AttributeDict({'hash': '0xaf953a2d01f55cfe080c0c94150a60105e8ac3d51153058a1f03dd239dd08585', 'blockNumber': tx.blockNumber, 'gasPrice': 2000, 'nonce': 1000})
+
+    #     def send_existed_tx(attr):
+
+    #         if attr['nonce'] == 1000:
+    #             return str(w3.toHex(w3.toInt(tx_hash) + random.randint(1, 1000)))
+    #         else:
+    #             w3_ = minter.create_web3()
+    #             return w3_.eth.sendTransaction(attr)
+
+        # w3.txpool = MagicMock()
+        # w3.txpool.content = PropertyMock(return_value=pending)
+        # w3.eth.sendTransaction = MagicMock(
+        #     side_effect=send_existed_tx)
+        # w3.eth.getTransaction = MagicMock(side_effect=get_old_transaction)
+
+        # minter.resend_pending_transactions()
+
+        # print(minter.get_minting_status('m2'))
+
+        # self.assertTrue(False)
 
     def _token_json(self):
         with open(join(self.__class__._root_dir, 'build', 'contracts', 'SimpleMintableToken.json')) as fh:

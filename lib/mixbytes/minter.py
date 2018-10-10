@@ -17,12 +17,28 @@ from mixbytes.filelock import FileLock, WouldBlockError
 from mixbytes.conf import ConfigurationBase
 from mixbytes import contract
 import functools
+import math
+from toolz import assoc, merge
 
 logger = logging.getLogger(__name__)
 
 
+VALID_TRANSACTION_PARAMS = [
+    'from',
+    'to',
+    'gas',
+    'gasPrice',
+    'value',
+    'data',
+    'nonce',
+    'chainId',
+]
+
+
 class MinterService(object):
     TX_BLOCK_HEIGHT_KEY_PREFIX = 'bh'
+    PENDING_TRANSACTIONS_SET_KEY = 'pending_transactions'
+    TX_MINT_ID_KEY_PREFIX = 'mid_'
 
     def __init__(self, config, contracts_directory, wsgi_mode=False):
 
@@ -38,6 +54,8 @@ class MinterService(object):
 
         if wsgi_mode:
             self.unlockAccount()
+        self.pending_transactions = False
+        self.filter_id = None
 
     def unlockAccount(self):
         logger.debug("Unlock account %s" %
@@ -73,6 +91,13 @@ class MinterService(object):
         _silent_redis_call(self._redis.lpush, self._redis_mint_tx_key(
             mint_id), Web3.toBytes(hexstr=tx_hash))
 
+        _silent_redis_call(self._redis.set, self._redis_tx_mint_id_key(
+            tx_hash), mint_id, ex=3600)
+
+        logger.info("add pending transaction %s" % (tx_hash))
+        _silent_redis_call(
+            self._redis.sadd, self.PENDING_TRANSACTIONS_SET_KEY, Web3.toBytes(hexstr=tx_hash))
+
         logger.debug('mint_tokens(): mint_id=%s, address=%s, tokens=%d, gas_price=%d, gas=%d: sent tx %s',
                      Web3.toHex(mint_id), address, tokens, gas_price, gas_limit, tx_hash)
 
@@ -83,6 +108,9 @@ class MinterService(object):
         for k, v in kwargs.items():
             res[k] = v
         return res
+
+    def _redis_tx_mint_id_key(self, tx_hash):
+        return self.TX_MINT_ID_KEY_PREFIX + tx_hash
 
     def get_minting_status(self, mint_id) -> dict:
         """
@@ -114,6 +142,7 @@ class MinterService(object):
             rest_confirmations = conf.get(
                 'require_confirmations', 0) - confirmations
             return self._build_status('minting', confirmations=confirmations, rest_confirmations=rest_confirmations)
+
         # finding all known transaction ids which could mint this mint_id
         tx_bin_ids = _silent_redis_call(
             self._redis.lrange, self._redis_mint_tx_key(mint_id), 0, -1) or []
@@ -124,6 +153,7 @@ class MinterService(object):
 
         # searching for failed transactions
         for tx in txs:
+
             if tx.blockNumber is None:
                 continue  # not mined yet
 
@@ -196,6 +226,157 @@ class MinterService(object):
         except RuntimeError:
             return False
 
+    def prepare_replacement_transaction(self, web3, current_transaction, new_transaction):
+        # if current_transaction['blockNumber'] is not None:
+        #     raise ValueError('Supplied transaction with hash {} has already been mined'
+        #                      .format(current_transaction['hash']))
+        if 'nonce' in new_transaction and new_transaction['nonce'] != current_transaction['nonce']:
+            raise ValueError(
+                'Supplied nonce in new_transaction must match the pending transaction')
+
+        if 'nonce' not in new_transaction:
+            new_transaction = assoc(
+                new_transaction, 'nonce', current_transaction['nonce'])
+
+        if 'gasPrice' in new_transaction:
+            if new_transaction['gasPrice'] <= current_transaction['gasPrice']:
+                raise ValueError(
+                    'Supplied gas price must exceed existing transaction gas price')
+        else:
+            generated_gas_price = web3.eth.generateGasPrice(new_transaction)
+            minimum_gas_price = int(
+                math.ceil(current_transaction['gasPrice'] * 1.1))
+            if generated_gas_price and generated_gas_price > minimum_gas_price:
+                new_transaction = assoc(
+                    new_transaction, 'gasPrice', generated_gas_price)
+            else:
+                new_transaction = assoc(
+                    new_transaction, 'gasPrice', minimum_gas_price)
+
+        return new_transaction
+
+    def replace_transaction(self, web3, current_transaction, new_transaction):
+        new_transaction = self.prepare_replacement_transaction(
+            web3, current_transaction, new_transaction
+        )
+        return web3.eth.sendTransaction(new_transaction)
+
+    def get_required_transaction(self, web3, transaction_hash):
+        current_transaction = web3.eth.getTransaction(transaction_hash)
+        if not current_transaction:
+            raise ValueError('Supplied transaction with hash {} does not exist'
+                             .format(transaction_hash))
+        return current_transaction
+
+    def replaceTransaction(self, web3, transaction_hash, new_transaction):
+        current_transaction = self.get_required_transaction(
+            web3, transaction_hash)
+
+        return self.replace_transaction(web3, current_transaction, new_transaction)
+
+    def extract_valid_transaction_params(self, transaction_params):
+        extracted_params = {key: transaction_params[key]
+                            for key in VALID_TRANSACTION_PARAMS if key in transaction_params}
+
+        if extracted_params.get('data') is not None:
+            if transaction_params.get('input') is not None:
+                if extracted_params['data'] != transaction_params['input']:
+                    msg = 'failure to handle this transaction due to both "input: {}" and'
+                    msg += ' "data: {}" are populated. You need to resolve this conflict.'
+                    err_vals = (
+                        transaction_params['input'], extracted_params['data'])
+                    raise AttributeError(msg.format(*err_vals))
+                else:
+                    return extracted_params
+            else:
+                return extracted_params
+        elif extracted_params.get('data') is None:
+            if transaction_params.get('input') is not None:
+                return assoc(extracted_params, 'data', transaction_params['input'])
+            else:
+                return extracted_params
+        else:
+            raise Exception(
+                "Unreachable path: transaction's 'data' is either set or not set")
+
+    def modifyTransaction(self, web3, transaction_hash, **transaction_params):
+        #  assert_valid_transaction_params(transaction_params)
+        current_transaction = self.get_required_transaction(
+            web3, transaction_hash)
+        current_transaction_params = self.extract_valid_transaction_params(
+            current_transaction)
+        new_transaction = merge(current_transaction_params, transaction_params)
+
+        return self.replace_transaction(web3, current_transaction, new_transaction)
+
+    def resend_pending_transactions(self):
+        w3_instance = self._w3
+        if not self.pending_transactions:
+            self.pending_transactions = True
+            pending_txs_for_addr = w3_instance.txpool.content['pending'].get(
+                self._wsgi_mode_state.get_account_address(), {})
+            for txs in pending_txs_for_addr.values():
+                if type(txs) is list:
+                    hashes = map(lambda e: e['hash'], txs)
+                else:
+                    hashes = [txs['hash']]
+                for hash_ in hashes:
+                    logger.info(
+                        "init pending transaction from node %s" % (hash_))
+                    _silent_redis_call(
+                        self._redis.sadd, self.PENDING_TRANSACTIONS_SET_KEY, Web3.toBytes(hexstr=hash_))
+
+        # finding all known pending transactions
+        tx_bin_ids = _silent_redis_call(
+            self._redis.smembers, self.PENDING_TRANSACTIONS_SET_KEY) or []
+
+        # getting transactions
+        txs = []
+
+        for tx_id in tx_bin_ids:
+
+            tx = w3_instance.eth.getTransaction(Web3.toHex(tx_id))
+
+            if tx is None:
+                logger.info("remove not existed transaction %s" % (
+                    Web3.toHex(tx_id)))
+                _silent_redis_call(
+                    self._redis.srem, self.PENDING_TRANSACTIONS_SET_KEY, tx_id)
+            else:
+                txs.append(tx)
+
+        for tx in txs:
+
+            if tx.blockNumber is None:
+
+                new_gas_price = int(tx.gasPrice * 1.1)
+
+                new_tx_hash = self.modifyTransaction(w3_instance, tx.hash,
+                                                     gasPrice=new_gas_price)
+                logger.info("replace transaction %s with %s and new gas price %d" % (
+                    tx.hash, new_tx_hash, new_gas_price))
+                _silent_redis_call(
+                    self._redis.srem, self.PENDING_TRANSACTIONS_SET_KEY, Web3.toBytes(hexstr=tx.hash))
+                _silent_redis_call(
+                    self._redis.sadd, self.PENDING_TRANSACTIONS_SET_KEY, Web3.toBytes(hexstr=new_tx_hash))
+                mint_id = _silent_redis_call(
+                    self._redis.get, self._redis_tx_mint_id_key(tx.hash))
+
+                if mint_id is not None:
+                    _silent_redis_call(self._redis.delete,
+                                       self._redis_tx_mint_id_key(tx.hash))
+                    _silent_redis_call(
+                        self._redis.set, self._redis_tx_mint_id_key(new_tx_hash), mint_id, ex=3600)
+
+                    _silent_redis_call(self._redis.lpush, self._redis_mint_tx_key(
+                        Web3.toBytes(mint_id)), Web3.toBytes(hexstr=new_tx_hash))
+
+            else:
+                logger.info("remove non pending transaction %s" % (
+                    tx.hash))
+                _silent_redis_call(
+                    self._redis.srem, self.PENDING_TRANSACTIONS_SET_KEY, Web3.toBytes(hexstr=tx.hash))
+
     def deploy_contract(self, token_address):
         """
         Deploys new ReenterableMinter contract
@@ -267,6 +448,9 @@ class MinterService(object):
         :return: web3 interface configured with this instance configuration
         """
         return Web3(self._conf.get_provider())
+
+    def get_web3(self):
+        return self._w3
 
     def __exit__(self, type, value, traceback):
         self.close()
@@ -371,7 +555,7 @@ class MinterService(object):
 
         return Web3.toBytes(hexstr=Web3.sha3(mint_id))
 
-    def _redis_mint_tx_key(self, mint_id, key_prefix: str=""):
+    def _redis_mint_tx_key(self, mint_id, key_prefix: str = ""):
         """
         Creating unique redis key for current minter contract and mint_id
         :param mint_id: mint id (bytes)

@@ -62,6 +62,11 @@ def unlock_account(signum):
     wsgi_minter.unlockAccount()
 
 
+@timer(60)
+def resend_pending_transactions(signum):
+    wsgi_minter.resend_pending_transactions()
+
+
 @app.route('/mintTokens')
 def mint_tokens():
     if not contracts_registry.ico_info.isSaleActive():

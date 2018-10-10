@@ -48,8 +48,8 @@ script:
     ./node_modules/.bin/truffle test &&
     ./node_modules/.bin/truffle migrate &&
     source .venv/bin/activate &&
-    ./test/i/run.sh &&
-    /bin/bash .registry/label_containers.sh &&
+    ./test/i/run.sh 
+  - /bin/bash .registry/label_containers.sh &&
     docker build -t $IMAGE_NAME . &&
     /bin/bash .registry/upload_to_registry.sh $IMAGE_NAME
 
